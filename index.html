@@ -131,7 +131,7 @@
         }
         const csv = await res.text();
         const parsed = parseCSV(csv);
-        state.rows = normalizeRows(parsed);          // ← prende solo righe con Data valida
+        state.rows = normalizeRows(parsed);          // ← solo righe con Data valida
         state.lastUpdate = new Date();
         updateStats();
         renderTable();
@@ -165,7 +165,7 @@
       return rows;
     }
 
-    // Solo righe con campo "Data" valido
+    // Solo righe con campo "Data" valido + colonna L
     function normalizeRows(rows){
       if(!rows.length) return [];
       const header = rows[0].map(h=>h.toLowerCase());
@@ -179,9 +179,10 @@
         kmperc: header.indexOf('km percorsi'),
         kml: header.indexOf('km/l'),
         costokm: header.indexOf('costo €/km'),
-        stazione: header.indexOf('stazione (opz.)'),
-        note: header.indexOf('note (opz.)')
+        note: header.indexOf('note (opz.)'),
+        costoML: header.indexOf('costo mese/lavoro')   // ← colonna L
       };
+      // fallback per possibili varianti
       if(idx.prezzo===-1) idx.prezzo = header.findIndex(h=>h.includes('prezzo'));
       if(idx.importo===-1) idx.importo = header.findIndex(h=>h.includes('importo'));
 
@@ -192,24 +193,24 @@
 
         const rawDate = idx.data>-1 ? r[idx.data] : '';
         const iso = toISOIfValid(rawDate);
-        if(!iso) continue;                 // ← scarta riga se Data non valida
+        if(!iso) continue; // scarta righe senza data valida
 
-        // opzionale: scarta righe completamente vuote oltre la data
+        // opzionale: scarta righe completamente vuote
         const hasAny = r.some(c => String(c||'').trim()!=='');
         if(!hasAny) continue;
 
         out.push({
           data: iso,
-          prezzo: num(r[idx.prezzo]),
-          importo: num(r[idx.importo]),
-          litri: num(r[idx.litri]),
-          km_attuali: int(r[idx.km]),
-          trip: num(r[idx.trip]),
-          km_percorsi: num(r[idx.kmperc]),
-          kml: num(r[idx.kml]),
-          costokm: num(r[idx.costokm]),
-          stazione: r[idx.stazione]||'',
-          note: r[idx.note]||''
+          prezzo: toNum(r[idx.prezzo]),
+          importo: toNum(r[idx.importo]),
+          litri: toNum(r[idx.litri]),
+          km_attuali: toInt(r[idx.km]),
+          trip: toNum(r[idx.trip]),
+          km_percorsi: toNum(r[idx.kmperc]),
+          kml: toNum(r[idx.kml]),
+          costokm: toNum(r[idx.costokm]),
+          note: r[idx.note]||'',
+          costo_mese_lavoro: toNum(r[idx.costoML])
         });
       }
       out.sort((a,b)=> (Date.parse(b.data)||0) - (Date.parse(a.data)||0));
@@ -218,20 +219,18 @@
 
     function toISOIfValid(v){
       if(!v) return null;
-      // tenta parse diretto
       if(!Number.isNaN(Date.parse(v))) return new Date(v).toISOString();
-      // tenta dd/MM/yyyy HH:mm
       const m = String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
       if(m){
         const dd = m[1].padStart(2,'0'), MM = m[2].padStart(2,'0'), yyyy = m[3];
         const hh = (m[4]||'00').padStart(2,'0'), mm = (m[5]||'00').padStart(2,'0');
         return `${yyyy}-${MM}-${dd}T${hh}:${mm}:00Z`;
       }
-      return null; // non valida
+      return null;
     }
 
-    function num(v){ if(v==null) return null; const s=String(v).replace(/€/g,'').replace(/\s+/g,'').replace(/\./g,'').replace(',', '.'); const n=parseFloat(s); return isNaN(n)?null:n; }
-    function int(v){ if(v==null) return null; const s=String(v).replace(/[^0-9-]/g,''); const n=parseInt(s,10); return isNaN(n)?null:n; }
+    function toNum(v){ if(v==null||v==='') return null; const s=String(v).replace('€','').replace(/\s+/g,'').replace(/\./g,'').replace(',', '.'); const n=parseFloat(s); return isNaN(n)?null:n; }
+    function toInt(v){ if(v==null||v==='') return null; const n=parseInt(String(v).replace(/[^0-9-]/g,''),10); return isNaN(n)?null:n; }
 
     function updateStats(){
       const rows = state.rows;
@@ -260,7 +259,7 @@
         </div>`; return;
       }
 
-      const headers = ['Data','Prezzo €/L','Importo €','Litri','Km attuali','Km percorsi','Km/L','Costo €/km','Stazione','Note'];
+      const headers = ['Data','Prezzo €/L','Importo €','Litri','Km attuali','Km percorsi','Km/L','Costo €/km','Costo mese/lavoro','Note'];
       let html = '<table><thead><tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
       for(const r of rows){
         const d = r.data ? new Date(r.data) : null;
@@ -275,7 +274,7 @@
           + td('Km percorsi', fmtNum(r.km_percorsi,1))
           + td('Km/L', fmtNum(r.kml,2))
           + td('Costo €/km', fmtNum(r.costokm,3,true))
-          + td('Stazione', r.stazione || '<span class="na">—</span>')
+          + td('Costo mese/lavoro', fmtNum(r.costo_mese_lavoro,2,true))
           + td('Note', r.note || '<span class="na">—</span>')
           + '</tr>';
       }
