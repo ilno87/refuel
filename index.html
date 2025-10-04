@@ -227,43 +227,14 @@
 
     function toISOIfValid(v){
       if(!v) return null;
-      const s = String(v).trim();
-    
-      // 1) Forza DD/MM/YYYY (o DD-MM-YYYY) + orario opzionale con ":" o "."
-      //    esempi: "01/10/2025", "04/10/2025 0.41.55", "4-10-2025 07:05"
-      const m = s.match(
-        /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2})(?::|\.)(\d{2})(?::|\.)(\d{2})?)?$/
-      );
-      if (m){
-        let [ , d, M, Y, H, i, S ] = m;
-        d = d.padStart(2,'0');
-        M = M.padStart(2,'0');
-        H = (H ?? '00').padStart(2,'0');
-        i = (i ?? '00').padStart(2,'0');
-        S = (S ?? '00').padStart(2,'0');
-    
-        // piccola validazione giorno/mese
-        const dd = Number(d), MM = Number(M);
-        if (MM < 1 || MM > 12 || dd < 1 || dd > 31) return null;
-    
-        // Ritorno senza 'Z' → trattata come ora locale
-        return `${Y}-${M}-${d}T${H}:${i}:${S}`;
+      if(!Number.isNaN(Date.parse(v))) return new Date(v).toISOString();
+      const m = String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+      if(m){
+        const dd = m[1].padStart(2,'0'), MM = m[2].padStart(2,'0'), yyyy = m[3];
+        const hh = (m[4]||'00').padStart(2,'0'), mm = (m[5]||'00').padStart(2,'0');
+        return `${yyyy}-${MM}-${dd}T${hh}:${mm}:00Z`;
       }
-    
-      // 2) Se non è DD/MM, accetta ISO già valido (YYYY-MM-DD[THH:mm:ss[.sss]Z?])
-      const iso = Date.parse(s);
-      if (!Number.isNaN(iso)){
-        const d = new Date(s);
-        const Y = d.getFullYear();
-        const M = String(d.getMonth()+1).padStart(2,'0');
-        const D = String(d.getDate()).padStart(2,'0');
-        const H = String(d.getHours()).padStart(2,'0');
-        const i = String(d.getMinutes()).padStart(2,'0');
-        const S = String(d.getSeconds()).padStart(2,'0');
-        return `${Y}-${M}-${D}T${H}:${i}:${S}`;
-      }
-    
-      return null; // non riconosciuta
+      return null;
     }
 
     function toNum(v){ if(v==null||v==='') return null; const s=String(v).replace('€','').replace(/\s+/g,'').replace(/\./g,'').replace(',', '.'); const n=parseFloat(s); return isNaN(n)?null:n; }
