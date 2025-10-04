@@ -28,11 +28,6 @@
     .app-subtitle{font-size:15px;opacity:.9;font-weight:300}
     .cloud-badge{background:rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:15px;font-size:12px;margin-left:10px;backdrop-filter:blur(10px)}
 
-    /* Last update small line */
-    .last-update{font-size:12px;opacity:.9;margin-top:4px;color:#f0f9f8}
-    .last-update .status-dot{background:#28a745;animation:pulse 2s infinite}
-    @keyframes pulse{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
-
     .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
     .stat-card{background:var(--glass-bg);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:15px;padding:18px;text-align:center;box-shadow:0 10px 20px rgba(0,0,0,.1)}
     .stat-value{font-size:22px;font-weight:700;color:var(--primary);margin-bottom:4px}
@@ -82,10 +77,7 @@
   <div class="container">
     <header class="app-header">
       <h1 class="app-title">⛽ Rifornimenti GPL <span class="cloud-badge">📊 Viewer</span></h1>
-      <p class="app-subtitle">Storico rifornimenti da Google Sheets</p>
-      <p class="last-update"><span class="status-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle"></span>
-        Ultimo aggiornamento: <strong id="lastUpdateSmall">--:--</strong>
-      </p>
+      <p class="app-subtitle">Storico rifornimenti da Google Sheets (read‑only)</p>
     </header>
 
     <section class="stats-grid">
@@ -94,7 +86,7 @@
       <div class="stat-card"><div class="stat-value" id="statAvgPrice">€ 0.000</div><div class="stat-label">Prezzo medio €/L</div></div>
       <div class="stat-card"><div class="stat-value" id="statAvgKmL">0.00</div><div class="stat-label">Media Km/L</div></div>
       <div class="stat-card"><div class="stat-value" id="statAvgCostKm">€ 0.000</div><div class="stat-label">Costo medio €/km</div></div>
-      <div class="stat-card"><div class="stat-value" id="statCostoML">€ 0.00</div><div class="stat-label">Costo mese/lavoro</div></div>
+      <div class="stat-card"><div class="stat-value" id="statLastUpdate">--:--</div><div class="stat-label">Ultimo aggiornamento</div></div>
     </section>
 
     <div id="success" class="message success"></div>
@@ -163,7 +155,7 @@
         renderTable();
         setStatus(`Caricate ${state.rows.length} righe`, 'success');
         const time = state.lastUpdate.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-        document.getElementById('lastUpdateSmall').textContent = time;
+        document.getElementById('statLastUpdate').textContent = time;
         showMsg('success', `✅ Dati aggiornati alle ${time}`);
       }catch(err){
         console.error(err);
@@ -195,7 +187,7 @@
     // Mappa colonne per nome header e normalizza record
     function normalizeRows(rows){
       if(!rows.length) return [];
-      const header = rows[0].map(h=>String(h||'').toLowerCase());
+      const header = rows[0].map(h=>h.toLowerCase());
       const idx = {
         data: header.indexOf('data'),
         prezzo: header.indexOf('prezzo €/l'),
@@ -206,24 +198,18 @@
         kmperc: header.indexOf('km percorsi'),
         kml: header.indexOf('km/l'),
         costokm: header.indexOf('costo €/km'),
-        note: header.indexOf('note (opz.)'),
-        costoML: header.indexOf('costo mese/lavoro')
+        stazione: header.indexOf('stazione (opz.)'),
+        note: header.indexOf('note (opz.)')
       };
+      // fallback su varianti header possibili
       if(idx.prezzo===-1) idx.prezzo = header.findIndex(h=>h.includes('prezzo'));
       if(idx.importo===-1) idx.importo = header.findIndex(h=>h.includes('importo'));
 
-      const dataRows = rows.slice(1); // salta header (riga 1)
+      const dataRows = rows.slice(1); // salta header
       const out = [];
-      for(let i=0;i<dataRows.length;i++){
-        const r = dataRows[i];
-        const sheetRowIndex = i + 2; // 2 = prima riga dati
-        // ✅ Salta esplicitamente la riga 3 del foglio
-        if (sheetRowIndex === 3) continue;
-        // ✅ Salta righe senza alcun valore oppure senza Data
-        const hasAnyValue = r.some(c => String(c||'').trim() !== '');
-        const hasDate = (idx.data !== -1) && r[idx.data] && String(r[idx.data]).trim() !== '';
-        if(!hasAnyValue || !hasDate) continue;
-
+      for(const r of dataRows){
+        // ignora righe completamente vuote
+        if(r.every(c=>!c)) continue;
         const rec = {
           data: getDateStr(r[idx.data]),
           prezzo: num(r[idx.prezzo]),
@@ -239,8 +225,12 @@
         };
         out.push(rec);
       }
-      // Ordina per data decrescente
-      out.sort((a,b)=> (Date.parse(b.data)||0) - (Date.parse(a.data)||0));
+      // Ordina dalla più recente (se c'è la data) altrimenti per inserimento
+      out.sort((a,b)=>{
+        const da = a.data? Date.parse(a.data) : 0;
+        const db = b.data? Date.parse(b.data) : 0;
+        return db - da;
+      });
       return out;
     }
 
@@ -269,21 +259,20 @@
 
     function updateStats(){
       const rows = state.rows;
-      const sum = (arr,sel)=>arr.reduce((a,x)=>a+(sel(x)||0),0);
+      const total = rows.length;
+      const sum = (arr, sel)=> arr.reduce((acc,x)=>acc+(+ (sel(x) || 0)),0);
       const liters = sum(rows, r=>r.litri);
-      const totImporto = sum(rows, r=>r.importo);
+      const totalImporto = sum(rows, r=>r.importo);
       const totKm = sum(rows, r=>r.km_percorsi);
-      const avgPrice = liters>0 ? totImporto/liters : 0;
-      const avgKmL = liters>0 ? totKm/liters : 0;
-      const avgCostKm = totKm>0 ? totImporto/totKm : 0;
-      const latestCosto = rows.find(r => r.costo_mese_lavoro!=null)?.costo_mese_lavoro || 0;
+      const avgPrice = liters>0 ? totalImporto / liters : 0;
+      const avgKmL = liters>0 ? totKm / liters : 0;
+      const avgCostKm = totKm>0 ? totalImporto / totKm : 0;
 
-      document.getElementById('statTotal').textContent = fmtInt(rows.length);
-      document.getElementById('statLiters').textContent = (liters||0).toFixed(3);
+      document.getElementById('statTotal').textContent = fmtInt(total);
+      document.getElementById('statLiters').textContent = liters.toFixed(3);
       document.getElementById('statAvgPrice').textContent = '€ ' + (avgPrice||0).toFixed(3);
       document.getElementById('statAvgKmL').textContent = (avgKmL||0).toFixed(2);
       document.getElementById('statAvgCostKm').textContent = '€ ' + (avgCostKm||0).toFixed(3);
-      document.getElementById('statCostoML').textContent = '€ ' + Number(latestCosto||0).toFixed(2);
     }
 
     function renderTable(){
@@ -296,7 +285,7 @@
         </div>`; return;
       }
 
-      const headers = ['Data','Prezzo €/L','Importo €','Litri','Km attuali','Km percorsi','Km/L','Costo €/km','Note','Costo mese/lavoro'];
+      const headers = ['Data','Prezzo €/L','Importo €','Litri','Km attuali','Km percorsi','Km/L','Costo €/km','Stazione','Note'];
       let html = '<table><thead><tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
       for(const r of rows){
         const d = r.data ? new Date(r.data) : null;
@@ -311,8 +300,7 @@
           + td('Km percorsi', fmtNum(r.km_percorsi,1))
           + td('Km/L', fmtNum(r.kml,2))
           + td('Costo €/km', fmtNum(r.costokm,3,true))
-          + td('Note', r.note || '<span class="na">—</span>')
-          + td('Costo mese/lavoro', fmtNum(r.costo_mese_lavoro,2,true))
+          + td('Stazione', r.stazione || '<span class="na">—</span>')
           + td('Note', r.note || '<span class="na">—</span>')
           + '</tr>';
       }
