@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>⛽ Rifornimenti GPL – Viewer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --primary: #00d4aa;
+      --primary-dark: #00b894;
+      --secondary: #0984e3;
+      --accent: #fd79a8;
+      --success: #00b894;
+      --warning: #fdcb6e;
+      --error: #e84393;
+      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --card-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      --glass-bg: rgba(255, 255, 255, 0.95);
+      --glass-border: rgba(255, 255, 255, 0.2);
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-gradient);min-height:100vh;padding:20px}
+    .container{max-width:1200px;margin:0 auto}
+
+    .app-header{color:#fff;text-align:center;margin-bottom:28px}
+    .app-title{font-size:clamp(28px,6vw,40px);font-weight:700;margin-bottom:6px;text-shadow:0 2px 10px rgba(0,0,0,.3)}
+    .app-subtitle{font-size:15px;opacity:.9;font-weight:300}
+    .cloud-badge{background:rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:15px;font-size:12px;margin-left:10px;backdrop-filter:blur(10px)}
+
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+    .stat-card{background:var(--glass-bg);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:15px;padding:18px;text-align:center;box-shadow:0 10px 20px rgba(0,0,0,.1)}
+    .stat-value{font-size:22px;font-weight:700;color:var(--primary);margin-bottom:4px}
+    .stat-label{font-size:12px;color:#666;text-transform:uppercase;font-weight:600;letter-spacing:.3px}
+
+    .main-card{background:var(--glass-bg);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:20px;box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:20px}
+    .card-header{background:linear-gradient(135deg,var(--secondary) 0%,var(--primary) 100%);color:#fff;padding:22px;text-align:center;position:relative}
+    .card-header h2{font-size:22px;font-weight:600;margin-bottom:4px}
+    .refresh-btn{position:absolute;right:22px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.2);color:#fff;border:none;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;transition:all .25s ease}
+    .refresh-btn:hover{background:rgba(255,255,255,.3);transform:translateY(-50%) scale(1.05)}
+    .refresh-btn:disabled{opacity:.6;cursor:not-allowed;transform:translateY(-50%)}
+
+    .form-container{padding:24px}
+    .status-indicator{display:inline-flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px}
+    .status-dot{width:8px;height:8px;border-radius:50%;background:#28a745;animation:pulse 2s infinite}
+    @keyframes pulse{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
+
+    table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.08)}
+    thead th{background:var(--primary);color:#fff;padding:14px 10px;text-align:left;font-weight:700;font-size:13px;position:sticky;top:0;z-index:1}
+    tbody td{padding:12px 10px;border-bottom:1px solid #f0f0f0;font-size:13px}
+    tbody tr:hover{background:#f8f9fa}
+    tbody tr:nth-child(even){background:#fafbfc}
+    tbody tr:nth-child(even):hover{background:#f0f2f5}
+    .na{color:#999;font-style:italic}
+    .badge{background:#e3f2fd;color:#1976d2;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600}
+
+    .message{padding:14px 16px;border-radius:12px;margin-bottom:16px;font-weight:600;display:none}
+    .message.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+    .message.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
+
+    .loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:999;color:#fff;font-size:18px}
+
+    /* Mobile table → cards */
+    @media (max-width: 820px){
+      .stats-grid{grid-template-columns:repeat(2,1fr)}
+      .refresh-btn{position:static;transform:none;margin-top:10px}
+      table{display:block;border:0}
+      thead{display:none}
+      tbody{display:block}
+      tbody tr{border:1px solid #ddd;margin-bottom:10px;border-radius:8px;background:#fff;display:block;box-shadow:0 2px 4px rgba(0,0,0,.06);padding:8px 10px}
+      tbody td{display:flex;align-items:flex-start;padding:6px 0;border:none;font-size:12px;line-height:1.35}
+      tbody td::before{content:attr(data-label) ":";flex:0 0 120px;font-weight:700;color:var(--primary);padding-right:6px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="app-header">
+      <h1 class="app-title">⛽ Rifornimenti GPL <span class="cloud-badge">📊 Viewer</span></h1>
+      <p class="app-subtitle">Storico rifornimenti da Google Sheets (read‑only)</p>
+    </header>
+
+    <section class="stats-grid">
+      <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Rifornimenti</div></div>
+      <div class="stat-card"><div class="stat-value" id="statLiters">0</div><div class="stat-label">Litri totali</div></div>
+      <div class="stat-card"><div class="stat-value" id="statAvgPrice">€ 0.000</div><div class="stat-label">Prezzo medio €/L</div></div>
+      <div class="stat-card"><div class="stat-value" id="statAvgKmL">0.00</div><div class="stat-label">Media Km/L</div></div>
+      <div class="stat-card"><div class="stat-value" id="statAvgCostKm">€ 0.000</div><div class="stat-label">Costo medio €/km</div></div>
+      <div class="stat-card"><div class="stat-value" id="statLastUpdate">--:--</div><div class="stat-label">Ultimo aggiornamento</div></div>
+    </section>
+
+    <div id="success" class="message success"></div>
+    <div id="error" class="message error"></div>
+
+    <section class="main-card">
+      <div class="card-header">
+        <h2>📋 Storico rifornimenti</h2>
+        <p>Dati caricati automaticamente da Google Sheets</p>
+        <button id="refreshBtn" class="refresh-btn" type="button">🔄 Aggiorna</button>
+      </div>
+      <div class="form-container">
+        <div class="status-indicator"><span class="status-dot" id="statusDot"></span><span id="statusText">Caricamento...</span></div>
+        <div id="tableWrap"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="overlay" class="loading-overlay"><div><div style="font-size:48px;margin-bottom:14px">📊</div><div id="overlayText">Caricamento da Google Sheets...</div></div></div>
+
+  <script>
+    // ════════════════════════════════════════════════
+    // 🔧 CONFIG – Inserisci qui lo Spreadsheet ID e il GID del foglio "Dati"
+    // Come trovarli:
+    // • Spreadsheet ID: nell'URL del tuo Google Sheet: https://docs.google.com/spreadsheets/d/QUESTO_E_IL_TUO_ID/edit
+    // • GID della scheda "Dati": apri la scheda e guarda l'URL (.../edit#gid=123456789) → quello è il GID
+    const SHEET_ID = 'INSERISCI_ID_SHEET';
+    const SHEET_GID = 'INSERISCI_GID_DELLA_SCHEDA_DATI';
+    // Auto-refresh ogni X ms (es. 30 min)
+    const AUTO_REFRESH_MS = 30 * 60 * 1000;
+    // ════════════════════════════════════════════════
+
+    const state = { rows: [], lastUpdate: null, timer: null };
+
+    document.getElementById('refreshBtn').addEventListener('click', loadData);
+    document.addEventListener('DOMContentLoaded', () => { loadData(); startAutoRefresh(); });
+
+    function startAutoRefresh(){ if(state.timer) clearInterval(state.timer); state.timer = setInterval(loadData, AUTO_REFRESH_MS); }
+
+    function setStatus(message, type='info'){
+      document.getElementById('statusText').textContent = message;
+      const dot = document.getElementById('statusDot');
+      dot.style.background = type==='success' ? '#28a745' : type==='error' ? '#dc3545' : type==='warning' ? '#ffc107' : '#007bff';
+    }
+    function showOverlay(flag, text){ const ov=document.getElementById('overlay'); ov.style.display=flag?'flex':'none'; if(text) document.getElementById('overlayText').textContent=text; }
+    function showMsg(id, text){ const el=document.getElementById(id); el.innerHTML = text; el.style.display='block'; setTimeout(()=> el.style.display='none', id==='error'?10000:4000); }
+
+    async function loadData(){
+      try{
+        setStatus('Caricamento da Google Sheets...', 'info');
+        showOverlay(true);
+        if(!SHEET_ID || SHEET_ID.startsWith('INSERISCI')) throw new Error('Configura SHEET_ID nel codice');
+        if(!SHEET_GID || SHEET_GID.startsWith('INSERISCI')) throw new Error('Configura SHEET_GID nel codice');
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+        const res = await fetch(url, { method:'GET', mode:'cors', credentials:'omit' });
+        if(!res.ok){
+          if(res.status===403) throw new Error('Il foglio non è pubblico: Condividi → "Chiunque con il link" → Visualizzatore');
+          if(res.status===404) throw new Error('Sheet non trovato: verifica SHEET_ID e GID');
+          throw new Error(`HTTP ${res.status} – ${res.statusText}`);
+        }
+        const csv = await res.text();
+        const parsed = parseCSV(csv);
+        state.rows = normalizeRows(parsed);
+        state.lastUpdate = new Date();
+        updateStats();
+        renderTable();
+        setStatus(`Caricate ${state.rows.length} righe`, 'success');
+        const time = state.lastUpdate.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+        document.getElementById('statLastUpdate').textContent = time;
+        showMsg('success', `✅ Dati aggiornati alle ${time}`);
+      }catch(err){
+        console.error(err);
+        setStatus('Errore di connessione', 'error');
+        showMsg('error', '❌ ' + (err.message || 'Errore sconosciuto'));
+        document.getElementById('tableWrap').innerHTML = debugBox();
+      }finally{ showOverlay(false); }
+    }
+
+    // CSV → array di righe (array di celle), con gestione virgolette
+    function parseCSV(text){
+      const lines = text.replace(/\r\n?/g,'\n').split('\n').filter(l=>l.trim().length>0);
+      const rows = [];
+      for(const line of lines){
+        const cells = []; let cur=''; let inQ=false;
+        for(let i=0;i<line.length;i++){
+          const ch=line[i];
+          if(ch==='"'){
+            if(inQ && line[i+1]==='"'){ cur+='"'; i++; } else { inQ=!inQ; }
+          }else if(ch===',' && !inQ){ cells.push(cur); cur=''; }
+          else { cur+=ch; }
+        }
+        cells.push(cur);
+        rows.push(cells.map(c=>c.trim()));
+      }
+      return rows;
+    }
+
+    // Mappa colonne per nome header e normalizza record
+    function normalizeRows(rows){
+      if(!rows.length) return [];
+      const header = rows[0].map(h=>h.toLowerCase());
+      const idx = {
+        data: header.indexOf('data'),
+        prezzo: header.indexOf('prezzo €/l'),
+        importo: header.indexOf('importo €'),
+        litri: header.indexOf('litri'),
+        km: header.indexOf('km attuali'),
+        trip: header.indexOf('trip km (opz.)'),
+        kmperc: header.indexOf('km percorsi'),
+        kml: header.indexOf('km/l'),
+        costokm: header.indexOf('costo €/km'),
+        stazione: header.indexOf('stazione (opz.)'),
+        note: header.indexOf('note (opz.)')
+      };
+      // fallback su varianti header possibili
+      if(idx.prezzo===-1) idx.prezzo = header.findIndex(h=>h.includes('prezzo'));
+      if(idx.importo===-1) idx.importo = header.findIndex(h=>h.includes('importo'));
+
+      const dataRows = rows.slice(1); // salta header
+      const out = [];
+      for(const r of dataRows){
+        // ignora righe completamente vuote
+        if(r.every(c=>!c)) continue;
+        const rec = {
+          data: getDateStr(r[idx.data]),
+          prezzo: num(r[idx.prezzo]),
+          importo: num(r[idx.importo]),
+          litri: num(r[idx.litri]),
+          km_attuali: int(r[idx.km]),
+          trip: num(r[idx.trip]),
+          km_percorsi: num(r[idx.kmperc]),
+          kml: num(r[idx.kml]),
+          costokm: num(r[idx.costokm]),
+          stazione: r[idx.stazione]||'',
+          note: r[idx.note]||''
+        };
+        out.push(rec);
+      }
+      // Ordina dalla più recente (se c'è la data) altrimenti per inserimento
+      out.sort((a,b)=>{
+        const da = a.data? Date.parse(a.data) : 0;
+        const db = b.data? Date.parse(b.data) : 0;
+        return db - da;
+      });
+      return out;
+    }
+
+    function getDateStr(v){
+      if(!v) return '';
+      // Se già nel nostro formato dd/MM/yyyy HH:mm lo mostriamo così com'è
+      // Altrimenti tentiamo a convertirlo
+      // CSV potrebbe avere ISO o formati localizzati
+      const iso = Date.parse(v);
+      if(!isNaN(iso)) return new Date(iso).toISOString();
+      // fallback: prova a interpretare dd/MM/yyyy HH:mm
+      const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+      if(m){
+        const dd = m[1].padStart(2,'0');
+        const MM = m[2].padStart(2,'0');
+        const yyyy = m[3];
+        const hh = (m[4]||'00').padStart(2,'0');
+        const mm = (m[5]||'00').padStart(2,'0');
+        return `${yyyy}-${MM}-${dd}T${hh}:${mm}:00Z`;
+      }
+      return v; // ultimo tentativo: lasciala così
+    }
+
+    function num(v){ if(v==null) return null; const s=String(v).replace(/€/g,'').replace(/\s+/g,'').replace(/\./g,'').replace(',', '.'); const n=parseFloat(s); return isNaN(n)?null:n; }
+    function int(v){ if(v==null) return null; const s=String(v).replace(/[^0-9-]/g,''); const n=parseInt(s,10); return isNaN(n)?null:n; }
+
+    function updateStats(){
+      const rows = state.rows;
+      const total = rows.length;
+      const sum = (arr, sel)=> arr.reduce((acc,x)=>acc+(+ (sel(x) || 0)),0);
+      const liters = sum(rows, r=>r.litri);
+      const totalImporto = sum(rows, r=>r.importo);
+      const totKm = sum(rows, r=>r.km_percorsi);
+      const avgPrice = liters>0 ? totalImporto / liters : 0;
+      const avgKmL = liters>0 ? totKm / liters : 0;
+      const avgCostKm = totKm>0 ? totalImporto / totKm : 0;
+
+      document.getElementById('statTotal').textContent = fmtInt(total);
+      document.getElementById('statLiters').textContent = liters.toFixed(3);
+      document.getElementById('statAvgPrice').textContent = '€ ' + (avgPrice||0).toFixed(3);
+      document.getElementById('statAvgKmL').textContent = (avgKmL||0).toFixed(2);
+      document.getElementById('statAvgCostKm').textContent = '€ ' + (avgCostKm||0).toFixed(3);
+    }
+
+    function renderTable(){
+      const rows = state.rows;
+      if(!rows.length){
+        document.getElementById('tableWrap').innerHTML = `<div style="text-align:center;padding:40px;color:#6c757d">
+          <div style="font-size:56px">📄</div>
+          <h3>Nessun dato trovato</h3>
+          <p>Controlla che il foglio sia pubblico e che ci siano righe sotto l'intestazione.</p>
+        </div>`; return;
+      }
+
+      const headers = ['Data','Prezzo €/L','Importo €','Litri','Km attuali','Km percorsi','Km/L','Costo €/km','Stazione','Note'];
+      let html = '<table><thead><tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+      for(const r of rows){
+        const d = r.data ? new Date(r.data) : null;
+        const dataTxt = d ? d.toLocaleString('it-IT', {year:'2-digit', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '<span class="na">N/D</span>';
+        const td = (label, val)=> `<td data-label="${label}">${val ?? '<span class="na">N/D</span>'}</td>`;
+        html += '<tr>'
+          + td('Data', dataTxt)
+          + td('Prezzo €/L', fmtNum(r.prezzo,3,true))
+          + td('Importo €', fmtNum(r.importo,2,true))
+          + td('Litri', fmtNum(r.litri,3))
+          + td('Km attuali', fmtInt(r.km_attuali))
+          + td('Km percorsi', fmtNum(r.km_percorsi,1))
+          + td('Km/L', fmtNum(r.kml,2))
+          + td('Costo €/km', fmtNum(r.costokm,3,true))
+          + td('Stazione', r.stazione || '<span class="na">—</span>')
+          + td('Note', r.note || '<span class="na">—</span>')
+          + '</tr>';
+      }
+      html += '</tbody></table>';
+      document.getElementById('tableWrap').innerHTML = html;
+    }
+
+    // Helpers di formato
+    function fmtNum(v, dec=2, euro=false){ if(v==null || isNaN(v)) return '<span class="na">N/D</span>'; const n=Number(v).toFixed(dec); return euro?('€ '+n):n; }
+    function fmtInt(v){ if(v==null || isNaN(v)) return '—'; return Number(v).toLocaleString('it-IT'); }
+
+    function debugBox(){
+      return `
+        <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:14px">
+          <h4 style="margin:0 0 8px;color:#495057">🔧 Debug</h4>
+          <p><strong>SHEET_ID:</strong> <code>${SHEET_ID}</code></p>
+          <p><strong>GID:</strong> <code>${SHEET_GID}</code></p>
+          <p style="font-size:13px;color:#6c757d">Verifica: il foglio deve essere condiviso come "Chiunque con il link → Visualizzatore".</p>
+        </div>`;
+    }
+  </script>
+</body>
+</html>
