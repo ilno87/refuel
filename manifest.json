@@ -1,22 +1,18 @@
 {
-  "name": "Rifornimenti_TOD",
+  "name": "Rifornimenti GPL",
   "short_name": "Rifornimenti",
   "description": "Registro rifornimenti",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#667eea",
-  "theme_color": "#00d4aa",
   "orientation": "portrait",
+  "background_color": "#667eea",
+  "theme_color": "#667eea",
   "icons": [
-    {
-      "src": "https://via.placeholder.com/192x192/00d4aa/ffffff?text=🌊",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://via.placeholder.com/512x512/00d4aa/ffffff?text=🌊",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-monochrome.png", "sizes": "512x512", "type": "image/png", "purpose": "monochrome" }
   ]
 }
