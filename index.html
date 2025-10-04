@@ -113,8 +113,8 @@
     // Come trovarli:
     // • Spreadsheet ID: nell'URL del tuo Google Sheet: https://docs.google.com/spreadsheets/d/QUESTO_E_IL_TUO_ID/edit
     // • GID della scheda "Dati": apri la scheda e guarda l'URL (.../edit#gid=123456789) → quello è il GID
-    const SHEET_ID = '1SjrvVXd0D8dHyWJBt1niOrfQhGo5vCUa6tmzSE0EXdo';
-    const SHEET_GID = '340678856';
+    const SHEET_ID = 'INSERISCI_ID_SHEET';
+    const SHEET_GID = 'INSERISCI_GID_DELLA_SCHEDA_DATI';
     // Auto-refresh ogni X ms (es. 30 min)
     const AUTO_REFRESH_MS = 30 * 60 * 1000;
     // ════════════════════════════════════════════════
@@ -187,7 +187,7 @@
     // Mappa colonne per nome header e normalizza record
     function normalizeRows(rows){
       if(!rows.length) return [];
-      const header = rows[0].map(h=>h.toLowerCase());
+      const header = rows[0].map(h=>String(h||'').toLowerCase());
       const idx = {
         data: header.indexOf('data'),
         prezzo: header.indexOf('prezzo €/l'),
@@ -201,15 +201,21 @@
         stazione: header.indexOf('stazione (opz.)'),
         note: header.indexOf('note (opz.)')
       };
-      // fallback su varianti header possibili
       if(idx.prezzo===-1) idx.prezzo = header.findIndex(h=>h.includes('prezzo'));
       if(idx.importo===-1) idx.importo = header.findIndex(h=>h.includes('importo'));
 
-      const dataRows = rows.slice(1); // salta header
+      const dataRows = rows.slice(1); // salta header (riga 1)
       const out = [];
-      for(const r of dataRows){
-        // ignora righe completamente vuote
-        if(r.every(c=>!c)) continue;
+      for(let i=0;i<dataRows.length;i++){
+        const r = dataRows[i];
+        const sheetRowIndex = i + 2; // 2 = prima riga dati
+        // ✅ Salta esplicitamente la riga 3 del foglio
+        if (sheetRowIndex === 3) continue;
+        // ✅ Salta righe senza alcun valore oppure senza Data
+        const hasAnyValue = r.some(c => String(c||'').trim() !== '');
+        const hasDate = (idx.data !== -1) && r[idx.data] && String(r[idx.data]).trim() !== '';
+        if(!hasAnyValue || !hasDate) continue;
+
         const rec = {
           data: getDateStr(r[idx.data]),
           prezzo: num(r[idx.prezzo]),
@@ -225,12 +231,8 @@
         };
         out.push(rec);
       }
-      // Ordina dalla più recente (se c'è la data) altrimenti per inserimento
-      out.sort((a,b)=>{
-        const da = a.data? Date.parse(a.data) : 0;
-        const db = b.data? Date.parse(b.data) : 0;
-        return db - da;
-      });
+      // Ordina per data decrescente
+      out.sort((a,b)=> (Date.parse(b.data)||0) - (Date.parse(a.data)||0));
       return out;
     }
 
