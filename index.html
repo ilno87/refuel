@@ -3,7 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <title>⛽ Rifornimenti GPL</title>
+
+  <!-- PWA / Icons -->
+  <link rel="manifest" href="/manifest.json?v=3">
+  <meta name="theme-color" content="#667eea">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
+  <link rel="icon" href="/icons/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root{
@@ -182,7 +192,6 @@
         note: header.indexOf('note (opz.)'),
         costoML: header.indexOf('costo mese/lavoro')   // ← colonna L
       };
-      // fallback per possibili varianti
       if(idx.prezzo===-1) idx.prezzo = header.findIndex(h=>h.includes('prezzo'));
       if(idx.importo===-1) idx.importo = header.findIndex(h=>h.includes('importo'));
 
@@ -195,7 +204,6 @@
         const iso = toISOIfValid(rawDate);
         if(!iso) continue; // scarta righe senza data valida
 
-        // opzionale: scarta righe completamente vuote
         const hasAny = r.some(c => String(c||'').trim()!=='');
         if(!hasAny) continue;
 
