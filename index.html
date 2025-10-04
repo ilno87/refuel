@@ -230,9 +230,10 @@
       // Prima prova formato DD/MM/YYYY (formato italiano)
       const m = String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
       if(m){
-        const dd = m[1].padStart(2,'0'), MM = m[2].padStart(2,'0'), yyyy = m[3];
-        const hh = (m[4]||'00').padStart(2,'0'), mm = (m[5]||'00').padStart(2,'0');
-        return `${yyyy}-${MM}-${dd}T${hh}:${mm}:00Z`;
+        const dd = m[1].padStart(2,'0'), mm = m[2].padStart(2,'0'), yyyy = m[3];
+        const hh = (m[4]||'00').padStart(2,'0'), min = (m[5]||'00').padStart(2,'0');
+        // Restituisce la data come stringa per interpretazione locale
+        return `${yyyy}-${mm}-${dd}T${hh}:${min}:00`;
       }
       // Fallback per altri formati ISO
       if(!Number.isNaN(Date.parse(v))) return new Date(v).toISOString();
