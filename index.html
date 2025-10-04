@@ -3,30 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>⛽ Rifornimenti GPL – Viewer</title>
+  <title>⛽ Rifornimenti GPL</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root{
-      --primary: #00d4aa;
-      --primary-dark: #00b894;
-      --secondary: #0984e3;
-      --accent: #fd79a8;
-      --success: #00b894;
-      --warning: #fdcb6e;
-      --error: #e84393;
-      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --card-shadow: 0 20px 40px rgba(0,0,0,0.1);
-      --glass-bg: rgba(255, 255, 255, 0.95);
-      --glass-border: rgba(255, 255, 255, 0.2);
+      --primary:#00d4aa; --primary-dark:#00b894; --secondary:#0984e3; --accent:#fd79a8;
+      --success:#00b894; --warning:#fdcb6e; --error:#e84393;
+      --bg-gradient:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+      --card-shadow:0 20px 40px rgba(0,0,0,.1);
+      --glass-bg:rgba(255,255,255,.95); --glass-border:rgba(255,255,255,.2);
     }
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-gradient);min-height:100vh;padding:20px}
     .container{max-width:1200px;margin:0 auto}
 
-    .app-header{color:#fff;text-align:center;margin-bottom:28px}
+    .app-header{color:#fff;text-align:center;margin-bottom:24px}
     .app-title{font-size:clamp(28px,6vw,40px);font-weight:700;margin-bottom:6px;text-shadow:0 2px 10px rgba(0,0,0,.3)}
-    .app-subtitle{font-size:15px;opacity:.9;font-weight:300}
-    .cloud-badge{background:rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:15px;font-size:12px;margin-left:10px;backdrop-filter:blur(10px)}
+    .last-update{font-size:12px;opacity:.9}
 
     .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
     .stat-card{background:var(--glass-bg);backdrop-filter:blur(20px);border:1px solid var(--glass-border);border-radius:15px;padding:18px;text-align:center;box-shadow:0 10px 20px rgba(0,0,0,.1)}
@@ -52,7 +45,6 @@
     tbody tr:nth-child(even){background:#fafbfc}
     tbody tr:nth-child(even):hover{background:#f0f2f5}
     .na{color:#999;font-style:italic}
-    .badge{background:#e3f2fd;color:#1976d2;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600}
 
     .message{padding:14px 16px;border-radius:12px;margin-bottom:16px;font-weight:600;display:none}
     .message.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
@@ -60,7 +52,7 @@
 
     .loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:999;color:#fff;font-size:18px}
 
-    /* Mobile table → cards */
+    /* Mobile → card table */
     @media (max-width: 820px){
       .stats-grid{grid-template-columns:repeat(2,1fr)}
       .refresh-btn{position:static;transform:none;margin-top:10px}
@@ -76,8 +68,8 @@
 <body>
   <div class="container">
     <header class="app-header">
-      <h1 class="app-title">⛽ Rifornimenti GPL <span class="cloud-badge">📊 Viewer</span></h1>
-      <p class="app-subtitle">Storico rifornimenti da Google Sheets (read‑only)</p>
+      <h1 class="app-title">⛽ Rifornimenti GPL</h1>
+      <p class="last-update">Ultimo aggiornamento: <strong id="lastUpdateSmall">--:--</strong></p>
     </header>
 
     <section class="stats-grid">
@@ -86,7 +78,6 @@
       <div class="stat-card"><div class="stat-value" id="statAvgPrice">€ 0.000</div><div class="stat-label">Prezzo medio €/L</div></div>
       <div class="stat-card"><div class="stat-value" id="statAvgKmL">0.00</div><div class="stat-label">Media Km/L</div></div>
       <div class="stat-card"><div class="stat-value" id="statAvgCostKm">€ 0.000</div><div class="stat-label">Costo medio €/km</div></div>
-      <div class="stat-card"><div class="stat-value" id="statLastUpdate">--:--</div><div class="stat-label">Ultimo aggiornamento</div></div>
     </section>
 
     <div id="success" class="message success"></div>
@@ -108,16 +99,10 @@
   <div id="overlay" class="loading-overlay"><div><div style="font-size:48px;margin-bottom:14px">📊</div><div id="overlayText">Caricamento da Google Sheets...</div></div></div>
 
   <script>
-    // ════════════════════════════════════════════════
-    // 🔧 CONFIG – Inserisci qui lo Spreadsheet ID e il GID del foglio "Dati"
-    // Come trovarli:
-    // • Spreadsheet ID: nell'URL del tuo Google Sheet: https://docs.google.com/spreadsheets/d/QUESTO_E_IL_TUO_ID/edit
-    // • GID della scheda "Dati": apri la scheda e guarda l'URL (.../edit#gid=123456789) → quello è il GID
+    // === CONFIG ===
     const SHEET_ID = '1SjrvVXd0D8dHyWJBt1niOrfQhGo5vCUa6tmzSE0EXdo';
     const SHEET_GID = '340678856';
-    // Auto-refresh ogni X ms (es. 30 min)
     const AUTO_REFRESH_MS = 30 * 60 * 1000;
-    // ════════════════════════════════════════════════
 
     const state = { rows: [], lastUpdate: null, timer: null };
 
@@ -125,7 +110,6 @@
     document.addEventListener('DOMContentLoaded', () => { loadData(); startAutoRefresh(); });
 
     function startAutoRefresh(){ if(state.timer) clearInterval(state.timer); state.timer = setInterval(loadData, AUTO_REFRESH_MS); }
-
     function setStatus(message, type='info'){
       document.getElementById('statusText').textContent = message;
       const dot = document.getElementById('statusDot');
@@ -138,8 +122,6 @@
       try{
         setStatus('Caricamento da Google Sheets...', 'info');
         showOverlay(true);
-        if(!SHEET_ID || SHEET_ID.startsWith('INSERISCI')) throw new Error('Configura SHEET_ID nel codice');
-        if(!SHEET_GID || SHEET_GID.startsWith('INSERISCI')) throw new Error('Configura SHEET_GID nel codice');
         const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
         const res = await fetch(url, { method:'GET', mode:'cors', credentials:'omit' });
         if(!res.ok){
@@ -149,13 +131,13 @@
         }
         const csv = await res.text();
         const parsed = parseCSV(csv);
-        state.rows = normalizeRows(parsed);
+        state.rows = normalizeRows(parsed);          // ← prende solo righe con Data valida
         state.lastUpdate = new Date();
         updateStats();
         renderTable();
-        setStatus(`Caricate ${state.rows.length} righe`, 'success');
         const time = state.lastUpdate.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-        document.getElementById('statLastUpdate').textContent = time;
+        document.getElementById('lastUpdateSmall').textContent = time; // sotto il titolo
+        setStatus(`Caricate ${state.rows.length} righe`, 'success');
         showMsg('success', `✅ Dati aggiornati alle ${time}`);
       }catch(err){
         console.error(err);
@@ -165,7 +147,7 @@
       }finally{ showOverlay(false); }
     }
 
-    // CSV → array di righe (array di celle), con gestione virgolette
+    // CSV → array righe con virgolette gestite
     function parseCSV(text){
       const lines = text.replace(/\r\n?/g,'\n').split('\n').filter(l=>l.trim().length>0);
       const rows = [];
@@ -173,9 +155,8 @@
         const cells = []; let cur=''; let inQ=false;
         for(let i=0;i<line.length;i++){
           const ch=line[i];
-          if(ch==='"'){
-            if(inQ && line[i+1]==='"'){ cur+='"'; i++; } else { inQ=!inQ; }
-          }else if(ch===',' && !inQ){ cells.push(cur); cur=''; }
+          if(ch==='"'){ if(inQ && line[i+1]==='"'){ cur+='"'; i++; } else { inQ=!inQ; } }
+          else if(ch===',' && !inQ){ cells.push(cur); cur=''; }
           else { cur+=ch; }
         }
         cells.push(cur);
@@ -184,7 +165,7 @@
       return rows;
     }
 
-    // Mappa colonne per nome header e normalizza record
+    // Solo righe con campo "Data" valido
     function normalizeRows(rows){
       if(!rows.length) return [];
       const header = rows[0].map(h=>h.toLowerCase());
@@ -201,17 +182,24 @@
         stazione: header.indexOf('stazione (opz.)'),
         note: header.indexOf('note (opz.)')
       };
-      // fallback su varianti header possibili
       if(idx.prezzo===-1) idx.prezzo = header.findIndex(h=>h.includes('prezzo'));
       if(idx.importo===-1) idx.importo = header.findIndex(h=>h.includes('importo'));
 
-      const dataRows = rows.slice(1); // salta header
       const out = [];
-      for(const r of dataRows){
-        // ignora righe completamente vuote
-        if(r.every(c=>!c)) continue;
-        const rec = {
-          data: getDateStr(r[idx.data]),
+      for(let i=1;i<rows.length;i++){
+        const r = rows[i];
+        if(!r) continue;
+
+        const rawDate = idx.data>-1 ? r[idx.data] : '';
+        const iso = toISOIfValid(rawDate);
+        if(!iso) continue;                 // ← scarta riga se Data non valida
+
+        // opzionale: scarta righe completamente vuote oltre la data
+        const hasAny = r.some(c => String(c||'').trim()!=='');
+        if(!hasAny) continue;
+
+        out.push({
+          data: iso,
           prezzo: num(r[idx.prezzo]),
           importo: num(r[idx.importo]),
           litri: num(r[idx.litri]),
@@ -222,36 +210,24 @@
           costokm: num(r[idx.costokm]),
           stazione: r[idx.stazione]||'',
           note: r[idx.note]||''
-        };
-        out.push(rec);
+        });
       }
-      // Ordina dalla più recente (se c'è la data) altrimenti per inserimento
-      out.sort((a,b)=>{
-        const da = a.data? Date.parse(a.data) : 0;
-        const db = b.data? Date.parse(b.data) : 0;
-        return db - da;
-      });
+      out.sort((a,b)=> (Date.parse(b.data)||0) - (Date.parse(a.data)||0));
       return out;
     }
 
-    function getDateStr(v){
-      if(!v) return '';
-      // Se già nel nostro formato dd/MM/yyyy HH:mm lo mostriamo così com'è
-      // Altrimenti tentiamo a convertirlo
-      // CSV potrebbe avere ISO o formati localizzati
-      const iso = Date.parse(v);
-      if(!isNaN(iso)) return new Date(iso).toISOString();
-      // fallback: prova a interpretare dd/MM/yyyy HH:mm
-      const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+    function toISOIfValid(v){
+      if(!v) return null;
+      // tenta parse diretto
+      if(!Number.isNaN(Date.parse(v))) return new Date(v).toISOString();
+      // tenta dd/MM/yyyy HH:mm
+      const m = String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
       if(m){
-        const dd = m[1].padStart(2,'0');
-        const MM = m[2].padStart(2,'0');
-        const yyyy = m[3];
-        const hh = (m[4]||'00').padStart(2,'0');
-        const mm = (m[5]||'00').padStart(2,'0');
+        const dd = m[1].padStart(2,'0'), MM = m[2].padStart(2,'0'), yyyy = m[3];
+        const hh = (m[4]||'00').padStart(2,'0'), mm = (m[5]||'00').padStart(2,'0');
         return `${yyyy}-${MM}-${dd}T${hh}:${mm}:00Z`;
       }
-      return v; // ultimo tentativo: lasciala così
+      return null; // non valida
     }
 
     function num(v){ if(v==null) return null; const s=String(v).replace(/€/g,'').replace(/\s+/g,'').replace(/\./g,'').replace(',', '.'); const n=parseFloat(s); return isNaN(n)?null:n; }
@@ -259,17 +235,16 @@
 
     function updateStats(){
       const rows = state.rows;
-      const total = rows.length;
-      const sum = (arr, sel)=> arr.reduce((acc,x)=>acc+(+ (sel(x) || 0)),0);
+      const sum = (arr,sel)=>arr.reduce((a,x)=>a+(sel(x)||0),0);
       const liters = sum(rows, r=>r.litri);
-      const totalImporto = sum(rows, r=>r.importo);
+      const totImporto = sum(rows, r=>r.importo);
       const totKm = sum(rows, r=>r.km_percorsi);
-      const avgPrice = liters>0 ? totalImporto / liters : 0;
-      const avgKmL = liters>0 ? totKm / liters : 0;
-      const avgCostKm = totKm>0 ? totalImporto / totKm : 0;
+      const avgPrice = liters>0 ? totImporto/liters : 0;
+      const avgKmL = liters>0 ? totKm/liters : 0;
+      const avgCostKm = totKm>0 ? totImporto/totKm : 0;
 
-      document.getElementById('statTotal').textContent = fmtInt(total);
-      document.getElementById('statLiters').textContent = liters.toFixed(3);
+      document.getElementById('statTotal').textContent = rows.length.toString();
+      document.getElementById('statLiters').textContent = (liters||0).toFixed(3);
       document.getElementById('statAvgPrice').textContent = '€ ' + (avgPrice||0).toFixed(3);
       document.getElementById('statAvgKmL').textContent = (avgKmL||0).toFixed(2);
       document.getElementById('statAvgCostKm').textContent = '€ ' + (avgCostKm||0).toFixed(3);
@@ -289,7 +264,7 @@
       let html = '<table><thead><tr>' + headers.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
       for(const r of rows){
         const d = r.data ? new Date(r.data) : null;
-        const dataTxt = d ? d.toLocaleString('it-IT', {year:'2-digit', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '<span class="na">N/D</span>';
+        const dataTxt = d ? d.toLocaleString('it-IT',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '<span class="na">N/D</span>';
         const td = (label, val)=> `<td data-label="${label}">${val ?? '<span class="na">N/D</span>'}</td>`;
         html += '<tr>'
           + td('Data', dataTxt)
@@ -308,7 +283,6 @@
       document.getElementById('tableWrap').innerHTML = html;
     }
 
-    // Helpers di formato
     function fmtNum(v, dec=2, euro=false){ if(v==null || isNaN(v)) return '<span class="na">N/D</span>'; const n=Number(v).toFixed(dec); return euro?('€ '+n):n; }
     function fmtInt(v){ if(v==null || isNaN(v)) return '—'; return Number(v).toLocaleString('it-IT'); }
 
